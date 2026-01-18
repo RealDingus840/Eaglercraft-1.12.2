@@ -1,10 +1,10 @@
 // ==========================================
-// CUSTOM CLIENT MOD FOR EAGLERFORGE (FINAL CLEANED-UP)
+// CUSTOM CLIENT MOD FOR EAGLERFORGE (FINAL CLEANED-UP + TOGGLE BUTTON)
 // Save this as: customclient.js
 // ==========================================
 
 const CustomClient = {
-    version: "4.1.0",
+    version: "4.2.0",
     features: {
         fly: false,
         speed: false,
@@ -50,28 +50,23 @@ ModAPI.addEventListener("load", () => {
     console.log(`[Custom Client] Loading v${CustomClient.version}`);
 
     const menuHTML = `
-        <div id="ccMenu" style="display:none;">
+        <div id="ccMenu" style="display:none; position:fixed; top:10px; right:10px; background:rgba(0,0,0,0.9); padding:15px; border-radius:10px; z-index:999999; color:white;">
             <h3>⚡ Custom Client v${CustomClient.version}</h3>
-            <!-- Feature checkboxes -->
+            <!-- Feature checkboxes will be added here -->
             <button id="ccClose" class="cc-btn cc-btn-close">✖ Close</button>
         </div>
-        <button id="ccToggle" style="display:none;">⚡ Client</button>
+        <button id="ccToggle" style="position:fixed; top:10px; right:10px; z-index:999998; background:#4CAF50; color:white; padding:10px 20px; border:none; border-radius:10px; cursor:pointer;">⚡ Client</button>
     `;
     document.body.insertAdjacentHTML('beforeend', menuHTML);
 
     setupUI();
 
-    // Add ESC listener to show toggle button
-    document.addEventListener('keydown', e => {
-        if(e.key === 'Escape'){ // Show toggle button in Esc menu
-            document.getElementById('ccToggle').style.display='block';
-        }
-    });
+    // Ensure toggle button always visible
+    document.getElementById('ccToggle').style.display='block';
 
     console.log('[Custom Client] UI initialized');
 });
 
-// ==================== UI Setup ====================
 function setupUI(){
     const menu=document.getElementById('ccMenu');
     const toggleBtn=document.getElementById('ccToggle');
@@ -80,7 +75,6 @@ function setupUI(){
     function toggleMenu(){
         CustomClient.ui.menuVisible=!CustomClient.ui.menuVisible;
         menu.style.display=CustomClient.ui.menuVisible?'block':'none';
-        toggleBtn.style.display=CustomClient.ui.menuVisible?'none':'block';
     }
 
     toggleBtn.onclick=toggleMenu;
@@ -96,10 +90,8 @@ function applyXray(enabled){
     if(!ModAPI.world) return;
     ModAPI.world.forEachBlock((x,y,z,block)=>{
         if(!block) return;
-        if(enabled){
-            const ores=["diamond_ore","gold_ore","iron_ore","emerald_ore","redstone_ore","lapis_ore","coal_ore"];
-            block.visible=ores.includes(block.name);
-        }else block.visible=true;
+        const ores=["diamond_ore","gold_ore","iron_ore","emerald_ore","redstone_ore","lapis_ore","coal_ore"];
+        block.visible=enabled?ores.includes(block.name):true;
     });
 }
 
