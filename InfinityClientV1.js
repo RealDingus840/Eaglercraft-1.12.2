@@ -1,10 +1,10 @@
 // ==========================================
-// CUSTOM CLIENT MOD FOR EAGLERFORGE (FULL IMPLEMENTATION)
+// CUSTOM CLIENT MOD FOR EAGLERFORGE (FINAL CLEANED-UP)
 // Save this as: customclient.js
 // ==========================================
 
 const CustomClient = {
-    version: "4.0.0",
+    version: "4.1.0",
     features: {
         fly: false,
         speed: false,
@@ -25,10 +25,8 @@ const CustomClient = {
         playerESP: false,
         chestESP: false,
         mobESP: false,
-        viaVersionViewer: false,
         fastPlace: false,
         antiAim: false,
-        autoStrength: false,
         durabilityGUI: false,
         noDamage: false,
         scaffold: false,
@@ -51,51 +49,47 @@ const CustomClient = {
 ModAPI.addEventListener("load", () => {
     console.log(`[Custom Client] Loading v${CustomClient.version}`);
 
-    // Inject CSS (omitted for brevity)
-
     const menuHTML = `
-        <div id="ccMenu">
+        <div id="ccMenu" style="display:none;">
             <h3>⚡ Custom Client v${CustomClient.version}</h3>
-            <div class="cc-info"><strong>ℹ Info:</strong> Press <kbd>Right Shift</kbd> to toggle menu</div>
-            <!-- Feature checkboxes omitted for brevity -->
+            <!-- Feature checkboxes -->
             <button id="ccClose" class="cc-btn cc-btn-close">✖ Close</button>
         </div>
-        <button id="ccToggle">⚡ Client</button>
+        <button id="ccToggle" style="display:none;">⚡ Client</button>
     `;
     document.body.insertAdjacentHTML('beforeend', menuHTML);
 
-    setupEventListeners();
+    setupUI();
 
-    ModAPI.displayToChat({ msg: `§a§l[Custom Client] §rv${CustomClient.version} loaded! Press §eRight Shift§r to open menu` });
-});
-
-// ==================== Event Listeners ====================
-function setupEventListeners() {
-    const menu = document.getElementById('ccMenu');
-    const toggleBtn = document.getElementById('ccToggle');
-    const closeBtn = document.getElementById('ccClose');
-
-    function toggleMenu() {
-        CustomClient.ui.menuVisible = !CustomClient.ui.menuVisible;
-        menu.style.display = CustomClient.ui.menuVisible ? 'block' : 'none';
-        toggleBtn.style.display = CustomClient.ui.menuVisible ? 'none' : 'block';
-    }
-
-    toggleBtn.onclick = toggleMenu;
-    closeBtn.onclick = toggleMenu;
-
-    // Correct Right Shift toggle
+    // Add ESC listener to show toggle button
     document.addEventListener('keydown', e => {
-        if (e.code === 'ShiftRight' && !e.repeat && document.activeElement.tagName !== 'INPUT') {
-            e.preventDefault();
-            toggleMenu();
+        if(e.key === 'Escape'){ // Show toggle button in Esc menu
+            document.getElementById('ccToggle').style.display='block';
         }
     });
+
+    console.log('[Custom Client] UI initialized');
+});
+
+// ==================== UI Setup ====================
+function setupUI(){
+    const menu=document.getElementById('ccMenu');
+    const toggleBtn=document.getElementById('ccToggle');
+    const closeBtn=document.getElementById('ccClose');
+
+    function toggleMenu(){
+        CustomClient.ui.menuVisible=!CustomClient.ui.menuVisible;
+        menu.style.display=CustomClient.ui.menuVisible?'block':'none';
+        toggleBtn.style.display=CustomClient.ui.menuVisible?'none':'block';
+    }
+
+    toggleBtn.onclick=toggleMenu;
+    closeBtn.onclick=toggleMenu;
 }
 
 // ==================== Utilities ====================
 function applyFullbright(enabled){
-    if(ModAPI.mc && ModAPI.mc.gameSettings) ModAPI.mc.gameSettings.gammaSetting = enabled?100:1;
+    if(ModAPI.mc && ModAPI.mc.gameSettings) ModAPI.mc.gameSettings.gammaSetting=enabled?100:1;
 }
 
 function applyXray(enabled){
@@ -114,11 +108,11 @@ function distance(p1,p2){
 }
 
 function lookAtEntity(target){
-    const dx = target.posX - ModAPI.player.posX;
-    const dy = (target.posY + target.eyeHeight) - (ModAPI.player.posY + ModAPI.player.eyeHeight);
-    const dz = target.posZ - ModAPI.player.posZ;
-    ModAPI.player.rotationYaw = Math.atan2(dz,dx)*(180/Math.PI)-90;
-    ModAPI.player.rotationPitch = -Math.atan2(dy,Math.sqrt(dx*dx+dz*dz))*(180/Math.PI);
+    const dx=target.posX-ModAPI.player.posX;
+    const dy=(target.posY+target.eyeHeight)-(ModAPI.player.posY+ModAPI.player.eyeHeight);
+    const dz=target.posZ-ModAPI.player.posZ;
+    ModAPI.player.rotationYaw=Math.atan2(dz,dx)*(180/Math.PI)-90;
+    ModAPI.player.rotationPitch=-Math.atan2(dy,Math.sqrt(dx*dx+dz*dz))*(180/Math.PI);
 }
 
 // ==================== Tick / Main Loop ====================
@@ -141,10 +135,8 @@ ModAPI.addEventListener("update",()=>{
     let motionMultiplier=1;
     if(CustomClient.features.speed) motionMultiplier*=CustomClient.settings.speedMultiplier;
     if(CustomClient.features.noSlowdown && ModAPI.player.isUsingItem()) motionMultiplier*=5;
-    if(CustomClient.features.speed || CustomClient.features.noSlowdown){
-        ModAPI.player.motionX*=motionMultiplier;
-        ModAPI.player.motionZ*=motionMultiplier;
-    }
+    ModAPI.player.motionX*=motionMultiplier;
+    ModAPI.player.motionZ*=motionMultiplier;
 
     // NoFall
     if(CustomClient.features.noFall) ModAPI.player.fallDistance=0;
@@ -154,10 +146,8 @@ ModAPI.addEventListener("update",()=>{
         ModAPI.player.setSprinting(true);
     }
 
-    // Fullbright
+    // Fullbright / Xray
     if(CustomClient.features.fullbright) applyFullbright(true);
-
-    // Xray
     if(CustomClient.features.xray) applyXray(true);
 
     // AutoTotem
@@ -169,14 +159,8 @@ ModAPI.addEventListener("update",()=>{
         ModAPI.player.motionZ=0;
     }
 
-    // AutoStrength
-    if(CustomClient.features.autoStrength && ModAPI.player.hasPotion('strength')===false){
-        ModAPI.player.useItem('strength_potion');
-    }
-
     // Reach / Criticals
     if(CustomClient.features.reach || CustomClient.features.criticals){
-        // client-side hit detection modifications and critical jump logic
         if(CustomClient.features.criticals && ModAPI.player.onGround){
             ModAPI.player.motionY=0.1;
         }
@@ -213,7 +197,6 @@ ModAPI.addEventListener("update",()=>{
 
     // Scaffold / SafeWalk
     if(CustomClient.features.scaffold || CustomClient.features.safeWalk){
-        // implement block check under player
         const blockBelow=ModAPI.world.getBlock(Math.floor(ModAPI.player.posX),Math.floor(ModAPI.player.posY-1),Math.floor(ModAPI.player.posZ));
         if(CustomClient.features.scaffold && !blockBelow) ModAPI.player.placeBlockBelow();
         if(CustomClient.features.safeWalk){
