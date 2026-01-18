@@ -1,40 +1,42 @@
 // ==================================================
-// INFINITY CLIENT v2.0 (EAGLERFORGE)
-// Clean, honest, and functional utility client
+// INFINITY CLIENT v2.1 — FIXED & RESTORED
+// EaglerForge Utility / Combat Client
 // ==================================================
 
 const InfinityClient = {
-    version: "2.0.0",
+    version: "2.1.0",
     features: {
+        // Movement
         fly: false,
         speed: false,
         elytraPause: false,
         autoSprint: false,
         noFall: false,
 
+        // Combat
         killaura: false,
-        fastPlace: false,
 
-        tracerPlayers: false,
-        tracerMobs: false,
-
+        // Visual
+        playerESP: false,
+        mobESP: false,
+        chestESP: false,
         fullbright: false,
         durabilityGUI: false,
-
-        modernVisuals: false
+        viaVersionViewer: false
     },
     settings: {
         speedMultiplier: 1.5,
         flySpeed: 0.4,
         killauraCPS: 8,
-        fastPlaceDelay: 0
+        killauraRange: 4.2,
+        mobESPType: "all"
     },
     internal: {
         lastAttack: 0
     }
 };
 
-// ================= UI LOAD =================
+// ================= UI =================
 
 ModAPI.addEventListener("load", () => {
     const style = document.createElement("style");
@@ -44,25 +46,26 @@ ModAPI.addEventListener("load", () => {
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            background: rgba(0,0,0,0.9);
-            border: 2px solid #00ff99;
+            background: rgba(0,0,0,0.92);
+            border: 2px solid #4caf50;
             border-radius: 10px;
-            width: 600px;
-            max-height: 80vh;
+            width: 650px;
+            max-height: 85vh;
             color: white;
             display: none;
             z-index: 999999;
             font-family: Arial;
         }
         #icHeader {
-            padding: 12px;
-            background: #00ff99;
+            padding: 14px;
+            background: #4caf50;
             color: black;
             font-weight: bold;
             text-align: center;
+            border-radius: 8px 8px 0 0;
         }
         #icContent {
-            padding: 12px;
+            padding: 14px;
             overflow-y: auto;
             max-height: 65vh;
         }
@@ -71,13 +74,15 @@ ModAPI.addEventListener("load", () => {
             margin: 6px 0;
             background: rgba(255,255,255,0.05);
             border-radius: 6px;
-            cursor: pointer;
+        }
+        .icToggle input {
+            margin-right: 6px;
         }
         #icOpen {
             position: fixed;
             top: 10px;
             right: 10px;
-            background: #00ff99;
+            background: #4caf50;
             color: black;
             border: none;
             padding: 10px 18px;
@@ -90,12 +95,22 @@ ModAPI.addEventListener("load", () => {
             position: fixed;
             bottom: 10px;
             right: 10px;
-            background: rgba(0,0,0,0.7);
-            padding: 8px;
+            background: rgba(0,0,0,0.85);
+            padding: 10px 14px;
             border-radius: 6px;
-            font-size: 12px;
+            font-size: 13px;
+            color: #4caf50;
             display: none;
             z-index: 999997;
+            border: 1px solid #4caf50;
+        }
+        #mobESPInput {
+            width: 100%;
+            padding: 6px;
+            background: #111;
+            border: 1px solid #555;
+            color: white;
+            border-radius: 4px;
         }
     `;
     document.head.appendChild(style);
@@ -105,6 +120,8 @@ ModAPI.addEventListener("load", () => {
         <div id="icMenu">
             <div id="icHeader">Infinity Client v${InfinityClient.version}</div>
             <div id="icContent">
+
+                <b>Movement</b>
                 <div class="icToggle"><input type="checkbox" id="fly"> Fly</div>
                 <div class="icToggle"><input type="checkbox" id="speed"> Speed</div>
                 <div class="icToggle"><input type="checkbox" id="elytraPause"> Elytra Pause</div>
@@ -113,19 +130,27 @@ ModAPI.addEventListener("load", () => {
 
                 <hr>
 
+                <b>Combat</b>
                 <div class="icToggle"><input type="checkbox" id="killaura"> KillAura</div>
-                <div class="icToggle"><input type="checkbox" id="fastPlace"> Fast Place</div>
 
                 <hr>
 
-                <div class="icToggle"><input type="checkbox" id="tracerPlayers"> Player Tracers</div>
-                <div class="icToggle"><input type="checkbox" id="tracerMobs"> Mob Tracers</div>
+                <b>ESP</b>
+                <div class="icToggle"><input type="checkbox" id="playerESP"> Player ESP (Tracers)</div>
+                <div class="icToggle"><input type="checkbox" id="mobESP"> Mob ESP (Tracers)</div>
+                <div class="icToggle">
+                    Mob Type:
+                    <input id="mobESPInput" value="all" placeholder="all, zombie, skeleton...">
+                </div>
+                <div class="icToggle"><input type="checkbox" id="chestESP"> Chest ESP</div>
 
                 <hr>
 
+                <b>Visual</b>
                 <div class="icToggle"><input type="checkbox" id="fullbright"> Fullbright</div>
-                <div class="icToggle"><input type="checkbox" id="durabilityGUI"> Durability HUD</div>
-                <div class="icToggle"><input type="checkbox" id="modernVisuals"> Modern Visuals (1.12+)</div>
+                <div class="icToggle"><input type="checkbox" id="durabilityGUI"> Durability GUI</div>
+                <div class="icToggle"><input type="checkbox" id="viaVersionViewer"> ViaVersion Viewer (Cosmetic)</div>
+
             </div>
         </div>
         <div id="durabilityHUD"></div>
@@ -138,15 +163,17 @@ ModAPI.addEventListener("load", () => {
 
     Object.keys(InfinityClient.features).forEach(k => {
         const el = document.getElementById(k);
-        if (el) {
-            el.onchange = e => InfinityClient.features[k] = e.target.checked;
-        }
+        if (el) el.onchange = e => InfinityClient.features[k] = e.target.checked;
     });
 
-    ModAPI.displayToChat({ msg: "§a[Infinity] Loaded v2.0" });
+    document.getElementById("mobESPInput").oninput = e => {
+        InfinityClient.settings.mobESPType = e.target.value.toLowerCase();
+    };
+
+    ModAPI.displayToChat({ msg: "§a[Infinity] Loaded v2.1" });
 });
 
-// ================= TRACER ESP =================
+// ================= ESP TRACERS =================
 
 const tracerCanvas = document.createElement("canvas");
 tracerCanvas.style.position = "fixed";
@@ -168,111 +195,90 @@ ModAPI.addEventListener("update", () => {
     ModAPI.require("player");
     if (!ModAPI.player) return;
 
-    // Fly
-    if (InfinityClient.features.fly) {
-        ModAPI.player.motionY = 0;
-        if (ModAPI.mc.gameSettings.keyBindJump.pressed)
-            ModAPI.player.motionY = InfinityClient.settings.flySpeed;
-        if (ModAPI.mc.gameSettings.keyBindSneak.pressed)
-            ModAPI.player.motionY = -InfinityClient.settings.flySpeed;
-        ModAPI.player.onGround = true;
-        ModAPI.player.reload();
-    }
-
-    // Speed (fixed)
-    if (InfinityClient.features.speed) {
-        const yaw = ModAPI.player.rotationYaw * Math.PI / 180;
-        const spd = 0.1 * InfinityClient.settings.speedMultiplier;
-        if (ModAPI.mc.gameSettings.keyBindForward.pressed) {
-            ModAPI.player.motionX = -Math.sin(yaw) * spd;
-            ModAPI.player.motionZ =  Math.cos(yaw) * spd;
-            ModAPI.player.reload();
-        }
-    }
-
-    // Elytra Pause
+    // Elytra Pause (fixed)
     if (InfinityClient.features.elytraPause &&
-        ModAPI.player.isElytraFlying && ModAPI.player.isElytraFlying()) {
+        ModAPI.player.isElytraFlying &&
+        ModAPI.player.isElytraFlying()) {
+
         ModAPI.player.motionX = 0;
         ModAPI.player.motionY = 0;
         ModAPI.player.motionZ = 0;
+        ModAPI.player.onGround = true;
+        ModAPI.player.fallDistance = 0;
         ModAPI.player.reload();
     }
 
-    // Auto Sprint
-    if (InfinityClient.features.autoSprint &&
-        ModAPI.mc.gameSettings.keyBindForward.pressed) {
-        ModAPI.player.setSprinting(true);
-    }
-
-    // No Fall
-    if (InfinityClient.features.noFall) {
-        ModAPI.player.fallDistance = 0;
-    }
-
-    // KillAura (timed)
+    // KillAura (nearest entity only)
     if (InfinityClient.features.killaura) {
         const now = Date.now();
         const delay = 1000 / InfinityClient.settings.killauraCPS;
         if (now - InfinityClient.internal.lastAttack >= delay) {
-            try {
-                ModAPI.world.loadedEntityList.forEach(e => {
-                    if (e !== ModAPI.player && e.attackEntityFrom) {
-                        ModAPI.player.attackTargetEntityWithCurrentItem(e);
-                        InfinityClient.internal.lastAttack = now;
-                    }
-                });
-            } catch {}
+            let closest = null;
+            let dist = InfinityClient.settings.killauraRange;
+
+            ModAPI.world.loadedEntityList.forEach(e => {
+                if (!e || e === ModAPI.player || !e.getDistanceToEntity) return;
+                const d = e.getDistanceToEntity(ModAPI.player);
+                if (d < dist) {
+                    dist = d;
+                    closest = e;
+                }
+            });
+
+            if (closest) {
+                ModAPI.player.attackTargetEntityWithCurrentItem(closest);
+                InfinityClient.internal.lastAttack = now;
+            }
         }
     }
 
-    // Fast Place
-    if (InfinityClient.features.fastPlace && ModAPI.mc) {
-        ModAPI.mc.rightClickDelayTimer = InfinityClient.settings.fastPlaceDelay;
-    }
-
-    // Fullbright
-    if (InfinityClient.features.fullbright) {
-        ModAPI.mc.gameSettings.gammaSetting = 100;
-    }
-
-    // Durability HUD
+    // Durability GUI (fixed)
     const hud = document.getElementById("durabilityHUD");
     if (InfinityClient.features.durabilityGUI) {
         hud.style.display = "block";
         try {
             const item = ModAPI.player.inventory.getCurrentItem();
             if (item && item.getMaxDamage) {
-                hud.textContent =
-                    "Durability: " +
-                    (item.getMaxDamage() - item.getItemDamage());
-            }
-        } catch {}
+                const left = item.getMaxDamage() - item.getItemDamage();
+                hud.textContent = `Durability: ${left}`;
+            } else hud.textContent = "No item";
+        } catch {
+            hud.textContent = "Durability error";
+        }
     } else hud.style.display = "none";
 
-    // Tracers
+    // ESP Tracers + Chest ESP
     tracerCtx.clearRect(0, 0, tracerCanvas.width, tracerCanvas.height);
-    if (InfinityClient.features.tracerPlayers || InfinityClient.features.tracerMobs) {
-        const cx = tracerCanvas.width / 2;
-        const cy = tracerCanvas.height;
-        ModAPI.world.loadedEntityList.forEach(e => {
-            if (!e || e === ModAPI.player) return;
-            const isPlayer = e.getName && e.getName();
-            if (isPlayer && !InfinityClient.features.tracerPlayers) return;
-            if (!isPlayer && !InfinityClient.features.tracerMobs) return;
+    const cx = tracerCanvas.width / 2;
+    const cy = tracerCanvas.height;
 
-            tracerCtx.strokeStyle = isPlayer ? "#00ff99" : "#ff4444";
-            tracerCtx.beginPath();
-            tracerCtx.moveTo(cx, cy);
-            tracerCtx.lineTo(
-                cx + (e.posX - ModAPI.player.posX) * 4,
-                cy - (e.posZ - ModAPI.player.posZ) * 4
-            );
-            tracerCtx.stroke();
-        });
-    }
+    ModAPI.world.loadedEntityList.forEach(e => {
+        if (!e || e === ModAPI.player) return;
+
+        const isPlayer = e.getName && e.getName();
+        const isMob = !isPlayer && e.getName;
+        const name = e.getName ? e.getName().toLowerCase() : "";
+
+        if (InfinityClient.features.mobESP &&
+            isMob &&
+            (InfinityClient.settings.mobESPType === "all" ||
+             name.includes(InfinityClient.settings.mobESPType))) {
+
+            tracerCtx.strokeStyle = "#ff5555";
+        } else if (InfinityClient.features.playerESP && isPlayer) {
+            tracerCtx.strokeStyle = "#00ff99";
+        } else return;
+
+        tracerCtx.beginPath();
+        tracerCtx.moveTo(cx, cy);
+        tracerCtx.lineTo(
+            cx + (e.posX - ModAPI.player.posX) * 4,
+            cy - (e.posZ - ModAPI.player.posZ) * 4
+        );
+        tracerCtx.stroke();
+    });
 });
 
 // ================= EXPORT =================
 window.InfinityClient = InfinityClient;
-console.log("[InfinityClient] Loaded v2.0");
+console.log("[InfinityClient] Loaded v2.1");
